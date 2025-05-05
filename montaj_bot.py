@@ -1,61 +1,61 @@
-import logging
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-from telegram import ReplyKeyboardMarkup
 
-# Логирование
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
 
-# Токен от BotFather
-TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
+TOKEN = "8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE"
 
 # Этапы разговора
 (CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER) = range(6)
 
-# Начало
-async def start(update, context):
-    logger.info("Запуск расчёта пользователем %s", update.effective_user.id)
-    await update.message.reply_text("Сколько камер нужно установить?")
+def make_keyboard(options):
+    return InlineKeyboardMarkup.from_column([InlineKeyboardButton(str(opt), callback_data=str(opt)) for opt in options])
+
+async def start(update: Update, context):
+    await update.message.reply_text("Сколько камер нужно установить?", reply_markup=make_keyboard(range(1, 9)))
     return CAMERAS
 
-async def get_cameras(update, context):
-    context.user_data['cameras'] = int(update.message.text)
-    await update.message.reply_text("Сколько метров кабеля?")
+async def get_cameras(update: Update, context):
+    context.user_data['cameras'] = int(update.callback_query.data)
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Сколько метров кабеля?", reply_markup=make_keyboard(range(10, 110, 10)))
     return CABLE
 
-async def get_cable(update, context):
-    context.user_data['cable'] = int(update.message.text)
-    await update.message.reply_text("Сколько метров кабеля в гофре?")
+async def get_cable(update: Update, context):
+    context.user_data['cable'] = int(update.callback_query.data)
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Сколько метров гофры?", reply_markup=make_keyboard(range(10, 110, 10)))
     return GOFRA
 
-async def get_gofra(update, context):
-    context.user_data['gofra'] = int(update.message.text)
-    await update.message.reply_text("Сколько метров кабель-канала?")
+async def get_gofra(update: Update, context):
+    context.user_data['gofra'] = int(update.callback_query.data)
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Сколько метров кабель-канала?", reply_markup=make_keyboard(range(10, 110, 10)))
     return KABELKANAL
 
-async def get_kanal(update, context):
-    context.user_data['kanal'] = int(update.message.text)
-    reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text(
-        "Нужна установка и настройка видеорегистратора?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
+async def get_kanal(update: Update, context):
+    context.user_data['kanal'] = int(update.callback_query.data)
+    await update.callback_query.answer()
+    keyboard = InlineKeyboardMarkup.from_row([
+        InlineKeyboardButton("Да", callback_data="да"),
+        InlineKeyboardButton("Нет", callback_data="нет")
+    ])
+    await update.callback_query.edit_message_text("Нужна установка видеорегистратора?", reply_markup=keyboard)
     return DVR
 
-async def get_dvr(update, context):
-    context.user_data['dvr'] = update.message.text.lower() == "да"
-    reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text(
-        "Нужна настройка роутера?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
+async def get_dvr(update: Update, context):
+    context.user_data['dvr'] = update.callback_query.data == "да"
+    await update.callback_query.answer()
+    keyboard = InlineKeyboardMarkup.from_row([
+        InlineKeyboardButton("Да", callback_data="да"),
+        InlineKeyboardButton("Нет", callback_data="нет")
+    ])
+    await update.callback_query.edit_message_text("Нужна настройка роутера?", reply_markup=keyboard)
     return ROUTER
 
-async def get_router(update, context):
-    context.user_data['router'] = update.message.text.lower() == "да"
+async def get_router(update: Update, context):
+    context.user_data['router'] = update.callback_query.data == "да"
+    await update.callback_query.answer()
 
     c = context.user_data
     total = (
@@ -66,11 +66,7 @@ async def get_router(update, context):
         (2500 if c['dvr'] else 0) +
         (1000 if c['router'] else 0)
     )
-
-    logger.info("Расчёт завершён пользователем %s. Сумма: %s₽", update.effective_user.id, total)
-
-    await update.message.reply_text(
-        f"""Расчёт:
+    text = f"""<b>Расчёт:</b>
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
 Кабеля: {c['cable']} м × 50 = {c['cable'] * 50}₽
 Гофры: {c['gofra']} м × 80 = {c['gofra'] * 80}₽
@@ -78,14 +74,9 @@ async def get_router(update, context):
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
 
-ИТОГО: {total}₽
-
-Хочешь начать заново? Напиши /start"""
-    )
-    return ConversationHandler.END
-
-async def cancel(update, context):
-    await update.message.reply_text("Операция отменена.")
+<b>ИТОГО: {total}₽</b>
+Нажмите /start, чтобы начать заново."""
+    await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML)
     return ConversationHandler.END
 
 app = Application.builder().token(TOKEN).build()
@@ -93,14 +84,14 @@ app = Application.builder().token(TOKEN).build()
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
-        CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cameras)],
-        CABLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cable)],
-        GOFRA: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gofra)],
-        KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
-        DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
-        ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
+        CAMERAS: [CallbackQueryHandler(get_cameras)],
+        CABLE: [CallbackQueryHandler(get_cable)],
+        GOFRA: [CallbackQueryHandler(get_gofra)],
+        KABELKANAL: [CallbackQueryHandler(get_kanal)],
+        DVR: [CallbackQueryHandler(get_dvr)],
+        ROUTER: [CallbackQueryHandler(get_router)],
     },
-    fallbacks=[CommandHandler("cancel", cancel)]
+    fallbacks=[]
 )
 
 app.add_handler(conv)

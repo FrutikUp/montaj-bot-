@@ -139,18 +139,20 @@ conv = ConversationHandler(
 # Добавляем хэндлер
 application.add_handler(conv)
 
-# Функция для запуска бота с использованием webhook
+# Функция для запуска бота с использованием polling (для диагностики)
 async def main():
-    # Запуск вебхука
-    await application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 8443)),
-        url_path="/webhook",
-        webhook_url="https://montaj-bot.onrender.com/webhook"
-    )
+    try:
+        # Запуск polling для диагностики (замените на run_webhook() при запуске на продакшн)
+        await application.run_polling()
+    except Exception as e:
+        logging.error(f"Ошибка при запуске бота: {e}")
+        raise
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     # Запуск основного процесса
-    asyncio.run(main())  # Используем asyncio.run для запуска и корректного завершения
+    try:
+        asyncio.run(main())  # Используем asyncio.run для запуска и корректного завершения
+    except Exception as e:
+        logging.error(f"Ошибка при выполнении: {e}")

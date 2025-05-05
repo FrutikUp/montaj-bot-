@@ -1,7 +1,7 @@
 import logging
 import os
 import asyncio
-from telegram import Bot, ReplyKeyboardMarkup, Update
+from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
 # Токен от BotFather
@@ -151,16 +151,6 @@ async def main():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    
-    # Замена asyncio.run() на управление циклом
-    try:
-        # Инициализация бота и его обработчиков
-        application.initialize()
-        
-        # Запуск основного процесса
-        asyncio.get_event_loop().run_until_complete(main())  # Запуск приложения с вебхуком
-    except Exception as e:
-        logging.error(f"Ошибка: {e}")
-    finally:
-        # Корректное завершение работы
-        asyncio.get_event_loop().close()
+
+    # Запуск основного процесса
+    asyncio.run(main())

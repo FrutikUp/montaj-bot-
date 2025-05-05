@@ -146,7 +146,6 @@ async def main():
         listen="0.0.0.0",
         port=PORT,
         webhook_url="https://montaj-bot.onrender.com/webhook",
-        webhook_path="/webhook"
     )
 
 if __name__ == '__main__':

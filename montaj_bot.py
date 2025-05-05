@@ -152,7 +152,15 @@ async def main():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     
+    # Замена asyncio.run() на управление циклом
     try:
-        asyncio.run(main())  # Запуск основного процесса
-    except RuntimeError as e:
+        # Инициализация бота и его обработчиков
+        application.initialize()
+        
+        # Запуск основного процесса
+        asyncio.get_event_loop().run_until_complete(main())  # Запуск приложения с вебхуком
+    except Exception as e:
         logging.error(f"Ошибка: {e}")
+    finally:
+        # Корректное завершение работы
+        asyncio.get_event_loop().close()

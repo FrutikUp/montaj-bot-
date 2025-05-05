@@ -1,4 +1,4 @@
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, executor
 import logging
 import os
 
@@ -13,4 +13,4 @@ async def send_welcome(message: types.Message):
     await message.reply("Привет! Я бот для расчета стоимости монтажных работ по видеонаблюдению.")
 
 if __name__ == '__main__':
-    dp.start_polling(skip_updates=True)
+    executor.start_polling(dp, skip_updates=True)

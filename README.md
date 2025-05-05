@@ -1,20 +1,23 @@
 # Montaj Bot
 
-Telegram-бот для расчёта стоимости монтажных работ по видеонаблюдению.
+Telegram-бот для расчета стоимости монтажных работ по видеонаблюдению.
 
-## Запуск
+## Установка и запуск
 
-1. Установи зависимости:
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. Установите зависимости:
+```
+pip install -r requirements.txt
+```
 
-2. Создай файл `.env` и добавь туда:
-   ```env
-   BOT_TOKEN=твой_токен_бота
-   ```
+2. Создайте переменную окружения BOT_TOKEN.
+3. Запустите:
+```
+python montaj_bot.py
+```
 
-3. Запусти:
-   ```bash
-   python montaj_bot.py
-   ```
+## Для Render
+
+- Тип сервиса: Background Worker
+- Build Command: pip install -r requirements.txt
+- Start Command: python montaj_bot.py
+- Environment Variable: BOT_TOKEN=твой_токен

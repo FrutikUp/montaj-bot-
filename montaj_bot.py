@@ -1,62 +1,77 @@
+from flask import Flask, request
+from telegram import Bot
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+import os
 
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ParseMode
+# Инициализация приложения Flask
+app = Flask(__name__)
 
-TOKEN = "8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE"
+# Токен от BotFather
+TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
 
 # Этапы разговора
-(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER) = range(6)
+(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(8)
 
-def make_keyboard(options):
-    return InlineKeyboardMarkup.from_column([InlineKeyboardButton(str(opt), callback_data=str(opt)) for opt in options])
+# Создание бота и приложения для работы с ним
+bot = Bot(token=TOKEN)
+application = Application.builder().token(TOKEN).build()
 
-async def start(update: Update, context):
-    await update.message.reply_text("Сколько камер нужно установить?", reply_markup=make_keyboard(range(1, 9)))
-    return CAMERAS
+# Создание хэндлеров и логики
+async def start(update, context):
+    reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
+    await update.message.reply_text(
+        "Привет! Чем могу помочь?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return MENU
 
-async def get_cameras(update: Update, context):
-    context.user_data['cameras'] = int(update.callback_query.data)
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Сколько метров кабеля?", reply_markup=make_keyboard(range(10, 110, 10)))
+async def menu(update, context):
+    text = update.message.text
+    if text == "Монтажные работы":
+        await update.message.reply_text("Сколько камер нужно установить?")
+        return CAMERAS
+    elif text == "Собрать комплект":
+        await update.message.reply_text("Выберите комплект: Камеры, кабель, видеорегистратор и т. д.")
+        return KIT_CAMERAS
+
+# Для Монтажных работ
+async def get_cameras(update, context):
+    context.user_data['cameras'] = int(update.message.text)
+    await update.message.reply_text("Сколько метров кабеля?")
     return CABLE
 
-async def get_cable(update: Update, context):
-    context.user_data['cable'] = int(update.callback_query.data)
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Сколько метров гофры?", reply_markup=make_keyboard(range(10, 110, 10)))
+async def get_cable(update, context):
+    context.user_data['cable'] = int(update.message.text)
+    await update.message.reply_text("Сколько метров кабеля в гофре?")
     return GOFRA
 
-async def get_gofra(update: Update, context):
-    context.user_data['gofra'] = int(update.callback_query.data)
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Сколько метров кабель-канала?", reply_markup=make_keyboard(range(10, 110, 10)))
+async def get_gofra(update, context):
+    context.user_data['gofra'] = int(update.message.text)
+    await update.message.reply_text("Сколько метров кабель-канала?")
     return KABELKANAL
 
-async def get_kanal(update: Update, context):
-    context.user_data['kanal'] = int(update.callback_query.data)
-    await update.callback_query.answer()
-    keyboard = InlineKeyboardMarkup.from_row([
-        InlineKeyboardButton("Да", callback_data="да"),
-        InlineKeyboardButton("Нет", callback_data="нет")
-    ])
-    await update.callback_query.edit_message_text("Нужна установка видеорегистратора?", reply_markup=keyboard)
+async def get_kanal(update, context):
+    context.user_data['kanal'] = int(update.message.text)
+    reply_keyboard = [["Да", "Нет"]]
+    await update.message.reply_text(
+        "Нужна установка и настройка видеорегистратора?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
     return DVR
 
-async def get_dvr(update: Update, context):
-    context.user_data['dvr'] = update.callback_query.data == "да"
-    await update.callback_query.answer()
-    keyboard = InlineKeyboardMarkup.from_row([
-        InlineKeyboardButton("Да", callback_data="да"),
-        InlineKeyboardButton("Нет", callback_data="нет")
-    ])
-    await update.callback_query.edit_message_text("Нужна настройка роутера?", reply_markup=keyboard)
+async def get_dvr(update, context):
+    context.user_data['dvr'] = update.message.text.lower() == "да"
+    reply_keyboard = [["Да", "Нет"]]
+    await update.message.reply_text(
+        "Нужна настройка роутера?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
     return ROUTER
 
-async def get_router(update: Update, context):
-    context.user_data['router'] = update.callback_query.data == "да"
-    await update.callback_query.answer()
+async def get_router(update, context):
+    context.user_data['router'] = update.message.text.lower() == "да"
 
+    # Расчёт
     c = context.user_data
     total = (
         c['cameras'] * 1800 +
@@ -66,7 +81,9 @@ async def get_router(update: Update, context):
         (2500 if c['dvr'] else 0) +
         (1000 if c['router'] else 0)
     )
-    text = f"""<b>Расчёт:</b>
+
+    await update.message.reply_text(
+        f"""Расчёт:
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
 Кабеля: {c['cable']} м × 50 = {c['cable'] * 50}₽
 Гофры: {c['gofra']} м × 80 = {c['gofra'] * 80}₽
@@ -74,25 +91,46 @@ async def get_router(update: Update, context):
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
 
-<b>ИТОГО: {total}₽</b>
-Нажмите /start, чтобы начать заново."""
-    await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML)
+ИТОГО: {total}₽"""
+    )
     return ConversationHandler.END
 
-app = Application.builder().token(TOKEN).build()
+async def cancel(update, context):
+    await update.message.reply_text("Операция отменена.")
+    return ConversationHandler.END
 
+# Создание хэндлеров
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
-        CAMERAS: [CallbackQueryHandler(get_cameras)],
-        CABLE: [CallbackQueryHandler(get_cable)],
-        GOFRA: [CallbackQueryHandler(get_gofra)],
-        KABELKANAL: [CallbackQueryHandler(get_kanal)],
-        DVR: [CallbackQueryHandler(get_dvr)],
-        ROUTER: [CallbackQueryHandler(get_router)],
+        MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu)],
+        CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cameras)],
+        CABLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cable)],
+        GOFRA: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gofra)],
+        KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
+        DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
+        ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
+        KIT_CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, kit_cameras)],
     },
-    fallbacks=[]
+    fallbacks=[CommandHandler("cancel", cancel)]
 )
 
-app.add_handler(conv)
-app.run_polling()
+application.add_handler(conv)
+
+# Flask приложение
+@app.route('/')
+def index():
+    return "Telegram bot is running"
+
+if __name__ == '__main__':
+    # Запуск бота и Flask сервера на нужном порту
+    from threading import Thread
+    def run_bot():
+        application.run_polling()
+
+    # Запуск в отдельных потоках
+    thread = Thread(target=run_bot)
+    thread.start()
+
+    # Запуск Flask сервера
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

@@ -136,16 +136,20 @@ conv = ConversationHandler(
 application.add_handler(conv)
 
 import os
+import asyncio
 
-if __name__ == '__main__':
-    # Получаем порт от Render или используем 8443 по умолчанию
-    PORT = int(os.environ.get('PORT', 8443))
-    WEBHOOK_PATH = f"/{TOKEN}"
-    WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
+PORT = int(os.environ.get("PORT", 8443))
 
-    application.run_webhook(
+async def main():
+    application.add_handler(conv)
+    await application.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        webhook_path=WEBHOOK_PATH,
-        webhook_url=WEBHOOK_URL,
+        webhook_url="https://montaj-bot.onrender.com/webhook",
+        webhook_path="/webhook"
     )
+
+if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())

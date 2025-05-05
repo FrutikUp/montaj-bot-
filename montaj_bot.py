@@ -1,4 +1,4 @@
-from telegram import Bot, ReplyKeyboardMarkup
+from telegram import Bot, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 
 # Токен от BotFather
@@ -93,6 +93,9 @@ async def get_router(update, context):
         (1000 if c['router'] else 0)
     )
 
+    # Добавление кнопки "Вернуться в начало"
+    reply_keyboard = [["Вернуться в начало"]]
+    
     await update.message.reply_text(
         f"""Расчёт:
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
@@ -102,12 +105,13 @@ async def get_router(update, context):
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
 
-ИТОГО: {total}₽"""
+ИТОГО: {total}₽""",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
-    return ConversationHandler.END
+    return MENU  # Переход в меню
 
 async def kit_cameras(update, context):
-    # Логика для сбора комплекта (к примеру, если бот должен собрать определенные товары)
+    # Логика для сбора комплекта
     await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
     return KIT_CAMERAS
 

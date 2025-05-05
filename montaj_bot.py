@@ -1,20 +1,18 @@
+from telegram import Bot, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 
-import logging
-import os
-import asyncio
-from telegram import ReplyKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
+# Токен от BotFather
+TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
 
-# Получаем токен из переменной окружения
-TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    raise ValueError("BOT_TOKEN is not set. Please set it in environment variables.")
-
+# Этапы разговора
 (CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(8)
 
+# Создание бота и приложения для работы с ним
+bot = Bot(token=TOKEN)
 application = Application.builder().token(TOKEN).build()
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Создание хэндлеров и логики
+async def start(update, context):
     reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
     await update.message.reply_text(
         "Привет! Чем могу помочь?",
@@ -22,7 +20,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return MENU
 
-async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def menu(update, context):
     text = update.message.text
     if text == "Монтажные работы":
         await update.message.reply_text("Сколько камер нужно установить?")
@@ -31,7 +29,8 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Выберите комплект: Камеры, кабель, видеорегистратор и т. д.")
         return KIT_CAMERAS
 
-async def get_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Для Монтажных работ
+async def get_cameras(update, context):
     try:
         context.user_data['cameras'] = int(update.message.text)
         await update.message.reply_text("Сколько метров кабеля?")
@@ -40,7 +39,7 @@ async def get_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return CAMERAS
 
-async def get_cable(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_cable(update, context):
     try:
         context.user_data['cable'] = int(update.message.text)
         await update.message.reply_text("Сколько метров кабеля в гофре?")
@@ -49,7 +48,7 @@ async def get_cable(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return CABLE
 
-async def get_gofra(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_gofra(update, context):
     try:
         context.user_data['gofra'] = int(update.message.text)
         await update.message.reply_text("Сколько метров кабель-канала?")
@@ -58,7 +57,7 @@ async def get_gofra(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return GOFRA
 
-async def get_kanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_kanal(update, context):
     try:
         context.user_data['kanal'] = int(update.message.text)
         reply_keyboard = [["Да", "Нет"]]
@@ -71,7 +70,7 @@ async def get_kanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return KABELKANAL
 
-async def get_dvr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_dvr(update, context):
     context.user_data['dvr'] = update.message.text.lower() == "да"
     reply_keyboard = [["Да", "Нет"]]
     await update.message.reply_text(
@@ -80,8 +79,10 @@ async def get_dvr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ROUTER
 
-async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_router(update, context):
     context.user_data['router'] = update.message.text.lower() == "да"
+
+    # Расчёт
     c = context.user_data
     total = (
         c['cameras'] * 1800 +
@@ -91,7 +92,7 @@ async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         (2500 if c['dvr'] else 0) +
         (1000 if c['router'] else 0)
     )
-    reply_keyboard = [["Вернуться в начало"]]
+
     await update.message.reply_text(
         f"""Расчёт:
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
@@ -100,19 +101,21 @@ async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Кабель-канала: {c['kanal']} м × 50 = {c['kanal'] * 50}₽
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
-ИТОГО: {total}₽""",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return MENU
 
-async def kit_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
+ИТОГО: {total}₽"""
+    )
+    return ConversationHandler.END
+
+async def kit_cameras(update, context):
+    # Логика для сбора комплекта (к примеру, если бот должен собрать определенные товары)
     await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
     return KIT_CAMERAS
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cancel(update, context):
     await update.message.reply_text("Операция отменена.")
     return ConversationHandler.END
 
+# Создание хэндлеров
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -130,14 +133,5 @@ conv = ConversationHandler(
 
 application.add_handler(conv)
 
-async def main():
-    await application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 8443)),
-        url_path="/webhook",
-        webhook_url="https://montaj-bot.onrender.com/webhook"
-    )
-
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+    application.run_polling()

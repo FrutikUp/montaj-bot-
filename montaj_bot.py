@@ -153,4 +153,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     # Запуск основного процесса
-    asyncio.run(main())
+    asyncio.run(main())  # Используем asyncio.run для запуска и корректного завершения

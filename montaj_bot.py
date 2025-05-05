@@ -1,6 +1,5 @@
 from telegram import Bot, ReplyKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 # Токен от BotFather
 TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
 
@@ -8,11 +7,10 @@ TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
 (CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(8)
 
 # Создание бота и приложения для работы с ним
-bot = Bot(token=TOKEN)
 application = Application.builder().token(TOKEN).build()
 
 # Создание хэндлеров и логики
-async def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
     await update.message.reply_text(
         "Привет! Чем могу помочь?",
@@ -20,7 +18,7 @@ async def start(update, context):
     )
     return MENU
 
-async def menu(update, context):
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "Монтажные работы":
         await update.message.reply_text("Сколько камер нужно установить?")
@@ -30,7 +28,7 @@ async def menu(update, context):
         return KIT_CAMERAS
 
 # Для Монтажных работ
-async def get_cameras(update, context):
+async def get_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['cameras'] = int(update.message.text)
         await update.message.reply_text("Сколько метров кабеля?")
@@ -39,7 +37,7 @@ async def get_cameras(update, context):
         await update.message.reply_text("Пожалуйста, введите число.")
         return CAMERAS
 
-async def get_cable(update, context):
+async def get_cable(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['cable'] = int(update.message.text)
         await update.message.reply_text("Сколько метров кабеля в гофре?")
@@ -48,7 +46,7 @@ async def get_cable(update, context):
         await update.message.reply_text("Пожалуйста, введите число.")
         return CABLE
 
-async def get_gofra(update, context):
+async def get_gofra(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['gofra'] = int(update.message.text)
         await update.message.reply_text("Сколько метров кабель-канала?")
@@ -57,7 +55,7 @@ async def get_gofra(update, context):
         await update.message.reply_text("Пожалуйста, введите число.")
         return GOFRA
 
-async def get_kanal(update, context):
+async def get_canal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['kanal'] = int(update.message.text)
         reply_keyboard = [["Да", "Нет"]]
@@ -70,7 +68,7 @@ async def get_kanal(update, context):
         await update.message.reply_text("Пожалуйста, введите число.")
         return KABELKANAL
 
-async def get_dvr(update, context):
+async def get_dvr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['dvr'] = update.message.text.lower() == "да"
     reply_keyboard = [["Да", "Нет"]]
     await update.message.reply_text(
@@ -79,7 +77,7 @@ async def get_dvr(update, context):
     )
     return ROUTER
 
-async def get_router(update, context):
+async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['router'] = update.message.text.lower() == "да"
 
     # Расчёт
@@ -110,12 +108,12 @@ async def get_router(update, context):
     )
     return MENU  # Переход в меню
 
-async def kit_cameras(update, context):
+async def kit_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Логика для сбора комплекта
     await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
     return KIT_CAMERAS
 
-async def cancel(update, context):
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Операция отменена.")
     return ConversationHandler.END
 
@@ -137,5 +135,17 @@ conv = ConversationHandler(
 
 application.add_handler(conv)
 
+import os
+
 if __name__ == '__main__':
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Получаем порт от Render или используем 8443 по умолчанию
+    PORT = int(os.environ.get('PORT', 8443))
+    WEBHOOK_PATH = f"/{TOKEN}"
+    WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
+
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_path=WEBHOOK_PATH,
+        webhook_url=WEBHOOK_URL,
+    )

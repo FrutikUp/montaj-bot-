@@ -1,10 +1,5 @@
-from flask import Flask
 from telegram import Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-import os
-
-# Инициализация приложения Flask
-app = Flask(__name__)
 
 # Токен от BotFather
 TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
@@ -138,20 +133,5 @@ conv = ConversationHandler(
 
 application.add_handler(conv)
 
-# Flask приложение
-@app.route('/')
-def index():
-    return "Telegram bot is running"
-
 if __name__ == '__main__':
-    # Запуск бота и Flask сервера на нужном порту
-    from threading import Thread
-    def run_bot():
-        application.run_polling()
-
-    # Запуск в отдельных потоках
-    thread = Thread(target=run_bot)
-    thread.start()
-
-    # Запуск Flask сервера
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    application.run_polling()

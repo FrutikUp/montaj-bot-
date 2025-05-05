@@ -1,27 +1,19 @@
+
 import logging
 import os
 import asyncio
-import nest_asyncio
 from telegram import ReplyKeyboardMarkup, Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    ConversationHandler,
-    ContextTypes
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
-# Безопасный способ хранения токена
-TOKEN = os.getenv("8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE")
+# Получаем токен из переменной окружения
+TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("BOT_TOKEN is not set. Please set it in environment variables.")
 
-# Этапы разговора
 (CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(8)
 
-# Создание приложения
 application = Application.builder().token(TOKEN).build()
 
-# Старт
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
     await update.message.reply_text(
@@ -30,7 +22,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return MENU
 
-# Меню
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "Монтажные работы":
@@ -39,13 +30,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "Собрать комплект":
         await update.message.reply_text("Выберите комплект: Камеры, кабель, видеорегистратор и т. д.")
         return KIT_CAMERAS
-    elif text == "Вернуться в начало":
-        return await start(update, context)
-    else:
-        await update.message.reply_text("Пожалуйста, выберите действие из меню.")
-        return MENU
 
-# Монтаж: камеры
 async def get_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['cameras'] = int(update.message.text)
@@ -55,7 +40,6 @@ async def get_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return CAMERAS
 
-# Монтаж: кабель
 async def get_cable(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['cable'] = int(update.message.text)
@@ -65,7 +49,6 @@ async def get_cable(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return CABLE
 
-# Монтаж: гофра
 async def get_gofra(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['gofra'] = int(update.message.text)
@@ -75,7 +58,6 @@ async def get_gofra(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return GOFRA
 
-# Монтаж: кабель-канал
 async def get_kanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['kanal'] = int(update.message.text)
@@ -89,7 +71,6 @@ async def get_kanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return KABELKANAL
 
-# Монтаж: видеорегистратор
 async def get_dvr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['dvr'] = update.message.text.lower() == "да"
     reply_keyboard = [["Да", "Нет"]]
@@ -99,7 +80,6 @@ async def get_dvr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ROUTER
 
-# Монтаж: роутер и расчет
 async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['router'] = update.message.text.lower() == "да"
     c = context.user_data
@@ -120,29 +100,19 @@ async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Кабель-канала: {c['kanal']} м × 50 = {c['kanal'] * 50}₽
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
-
 ИТОГО: {total}₽""",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
     return MENU
 
-# Собрать комплект
 async def kit_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip().lower()
-    try:
-        count = int(text.split()[0])
-        await update.message.reply_text(f"Вы выбрали комплект из {count} камер. Дальнейшая логика пока не реализована.")
-        return MENU
-    except (ValueError, IndexError):
-        await update.message.reply_text("Укажите количество камер, например: '4 камеры'")
-        return KIT_CAMERAS
+    await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
+    return KIT_CAMERAS
 
-# Отмена
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Операция отменена.")
     return ConversationHandler.END
 
-# Хендлеры
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -160,7 +130,6 @@ conv = ConversationHandler(
 
 application.add_handler(conv)
 
-# Основной запуск
 async def main():
     await application.run_webhook(
         listen="0.0.0.0",
@@ -169,8 +138,6 @@ async def main():
         webhook_url="https://montaj-bot.onrender.com/webhook"
     )
 
-# Запуск
 if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
-    nest_asyncio.apply()
-    asyncio.get_event_loop().run_until_complete(main())
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())

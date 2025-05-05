@@ -55,7 +55,7 @@ async def get_gofra(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, введите число.")
         return GOFRA
 
-async def get_canal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_kanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['kanal'] = int(update.message.text)
         reply_keyboard = [["Да", "Нет"]]

@@ -6,26 +6,29 @@ from telegram import ReplyKeyboardMarkup
 TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
 
 # Этапы разговора
-(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, CAMERA_KIT) = range(7)
+(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(7)
 
 # Начало
 async def start(update, context):
-    reply_keyboard = [["Монтажные работы", "Готовые комплекты камер"]]
+    reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
     await update.message.reply_text(
         "Привет! Чем могу помочь?",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
-    return CAMERA_KIT
+    return MENU
 
-async def camera_kit(update, context):
-    reply_keyboard = [["Сколько камер нужно установить?", "Собрать комплект"]]
-    await update.message.reply_text(
-        "Выберите действие:",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return CAMERA_KIT
+async def menu(update, context):
+    text = update.message.text.lower()
 
-# Монтажные работы
+    if text == "монтажные работы":
+        await update.message.reply_text("Сколько камер нужно установить?")
+        return CAMERAS
+
+    elif text == "собрать комплект":
+        await update.message.reply_text("Какой комплект камер нужно собрать?")
+        # Здесь можно добавить логику выбора комплектов
+        return KIT_CAMERAS
+
 async def get_cameras(update, context):
     context.user_data['cameras'] = int(update.message.text)
     await update.message.reply_text("Сколько метров кабеля?")
@@ -86,22 +89,29 @@ async def get_router(update, context):
     )
     return ConversationHandler.END
 
+async def kit_cameras(update, context):
+    # Здесь можно добавить логику для сбора комплектов камер
+    await update.message.reply_text("Собираем комплект с камерами...")
+    return ConversationHandler.END
+
 async def cancel(update, context):
     await update.message.reply_text("Операция отменена.")
     return ConversationHandler.END
+
 
 app = Application.builder().token(TOKEN).build()
 
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
-        CAMERA_KIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, camera_kit)],
+        MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu)],
         CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cameras)],
         CABLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cable)],
         GOFRA: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gofra)],
         KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
         DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
         ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
+        KIT_CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, kit_cameras)],
     },
     fallbacks=[CommandHandler("cancel", cancel)]
 )

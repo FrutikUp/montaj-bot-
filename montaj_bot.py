@@ -1,5 +1,5 @@
-from flask import Flask, request
-from telegram import Bot
+from flask import Flask
+from telegram import Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import os
 
@@ -36,28 +36,44 @@ async def menu(update, context):
 
 # Для Монтажных работ
 async def get_cameras(update, context):
-    context.user_data['cameras'] = int(update.message.text)
-    await update.message.reply_text("Сколько метров кабеля?")
-    return CABLE
+    try:
+        context.user_data['cameras'] = int(update.message.text)
+        await update.message.reply_text("Сколько метров кабеля?")
+        return CABLE
+    except ValueError:
+        await update.message.reply_text("Пожалуйста, введите число.")
+        return CAMERAS
 
 async def get_cable(update, context):
-    context.user_data['cable'] = int(update.message.text)
-    await update.message.reply_text("Сколько метров кабеля в гофре?")
-    return GOFRA
+    try:
+        context.user_data['cable'] = int(update.message.text)
+        await update.message.reply_text("Сколько метров кабеля в гофре?")
+        return GOFRA
+    except ValueError:
+        await update.message.reply_text("Пожалуйста, введите число.")
+        return CABLE
 
 async def get_gofra(update, context):
-    context.user_data['gofra'] = int(update.message.text)
-    await update.message.reply_text("Сколько метров кабель-канала?")
-    return KABELKANAL
+    try:
+        context.user_data['gofra'] = int(update.message.text)
+        await update.message.reply_text("Сколько метров кабель-канала?")
+        return KABELKANAL
+    except ValueError:
+        await update.message.reply_text("Пожалуйста, введите число.")
+        return GOFRA
 
 async def get_kanal(update, context):
-    context.user_data['kanal'] = int(update.message.text)
-    reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text(
-        "Нужна установка и настройка видеорегистратора?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return DVR
+    try:
+        context.user_data['kanal'] = int(update.message.text)
+        reply_keyboard = [["Да", "Нет"]]
+        await update.message.reply_text(
+            "Нужна установка и настройка видеорегистратора?",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+        )
+        return DVR
+    except ValueError:
+        await update.message.reply_text("Пожалуйста, введите число.")
+        return KABELKANAL
 
 async def get_dvr(update, context):
     context.user_data['dvr'] = update.message.text.lower() == "да"
@@ -94,6 +110,11 @@ async def get_router(update, context):
 ИТОГО: {total}₽"""
     )
     return ConversationHandler.END
+
+async def kit_cameras(update, context):
+    # Логика для сбора комплекта (к примеру, если бот должен собрать определенные товары)
+    await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
+    return KIT_CAMERAS
 
 async def cancel(update, context):
     await update.message.reply_text("Операция отменена.")

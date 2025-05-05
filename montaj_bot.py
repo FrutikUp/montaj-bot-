@@ -1,10 +1,24 @@
+import logging
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import ReplyKeyboardMarkup
 
-(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, RESTART) = range(7)
+# Логирование
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
+# Токен от BotFather
+TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
+
+# Этапы разговора
+(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER) = range(6)
+
+# Начало
 async def start(update, context):
-    await update.message.reply_text("Сколько камер нужно установить?", reply_markup=ReplyKeyboardRemove())
+    logger.info("Запуск расчёта пользователем %s", update.effective_user.id)
+    await update.message.reply_text("Сколько камер нужно установить?")
     return CAMERAS
 
 async def get_cameras(update, context):
@@ -53,7 +67,10 @@ async def get_router(update, context):
         (1000 if c['router'] else 0)
     )
 
-    reply_text = f"""Расчёт:
+    logger.info("Расчёт завершён пользователем %s. Сумма: %s₽", update.effective_user.id, total)
+
+    await update.message.reply_text(
+        f"""Расчёт:
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
 Кабеля: {c['cable']} м × 50 = {c['cable'] * 50}₽
 Гофры: {c['gofra']} м × 80 = {c['gofra'] * 80}₽
@@ -61,28 +78,17 @@ async def get_router(update, context):
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
 
-ИТОГО: {total}₽"""
+ИТОГО: {total}₽
 
-    reply_keyboard = [["Начать заново", "Выход"]]
-    await update.message.reply_text(reply_text)
-    await update.message.reply_text(
-        "Что хотите сделать дальше?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+Хочешь начать заново? Напиши /start"""
     )
-    return RESTART
-
-async def restart_or_exit(update, context):
-    if update.message.text == "Начать заново":
-        return await start(update, context)
-    else:
-        await update.message.reply_text("Спасибо! Если нужно будет снова — напишите /start.", reply_markup=ReplyKeyboardRemove())
-        return ConversationHandler.END
-
-async def cancel(update, context):
-    await update.message.reply_text("Операция отменена.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-app = Application.builder().token("ТВОЙ_ТОКЕН").build()
+async def cancel(update, context):
+    await update.message.reply_text("Операция отменена.")
+    return ConversationHandler.END
+
+app = Application.builder().token(TOKEN).build()
 
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
@@ -93,7 +99,6 @@ conv = ConversationHandler(
         KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
         DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
         ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
-        RESTART: [MessageHandler(filters.TEXT & ~filters.COMMAND, restart_or_exit)],
     },
     fallbacks=[CommandHandler("cancel", cancel)]
 )

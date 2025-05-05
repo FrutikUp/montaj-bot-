@@ -139,7 +139,7 @@ conv = ConversationHandler(
 # Добавляем хэндлер
 application.add_handler(conv)
 
-# Функция для запуска бота
+# Функция для запуска бота с использованием webhook
 async def main():
     # Запуск вебхука
     await application.run_webhook(
@@ -151,4 +151,8 @@ async def main():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+    
+    try:
+        asyncio.run(main())  # Запуск основного процесса
+    except RuntimeError as e:
+        logging.error(f"Ошибка: {e}")

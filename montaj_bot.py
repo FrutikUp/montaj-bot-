@@ -1,38 +1,33 @@
-
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
-import os
+TOKEN = "ТВОЙ_ТОКЕН"
 
-TOKEN = os.getenv("BOT_TOKEN")
+# Состояния
+MENU, CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER = range(7)
 
-# Этапы разговора
-(CHOOSE_SECTION, MONTAJ_CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, KIT_CAMERAS, KIT_DVR, KIT_HDD) = range(10)
-
-# Старт
 async def start(update, context):
-    reply_keyboard = [["Монтажные работы", "Готовый комплект камер"]]
-    await update.message.reply_text(
-        "Привет! Чем могу помочь?
-Выбери один из вариантов.",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return CHOOSE_SECTION
+    keyboard = [[KeyboardButton("Монтажные работы")], [KeyboardButton("Готовый комплект камер")]]
+    await update.message.reply_text("Привет! Чем могу помочь?", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    return MENU
 
-# Выбор раздела
-async def choose_section(update, context):
-    text = update.message.text.lower()
-    if "монтаж" in text:
-        await update.message.reply_text("Сколько камер нужно установить?")
-        return MONTAJ_CAMERAS
-    elif "комплект" in text:
-        await update.message.reply_text("Сколько камер в комплекте?")
-        return KIT_CAMERAS
+async def menu(update, context):
+    text = update.message.text
+    if text == "Монтажные работы":
+        await update.message.reply_text("Сколько камер нужно установить?", reply_markup=ReplyKeyboardRemove())
+        return CAMERAS
+    elif text == "Готовый комплект камер":
+        await update.message.reply_text("Готовые комплекты:
+1 камера — 5000₽
+2 камеры — 9000₽
+4 камеры — 17000₽
+
+Нажмите /start для возврата в меню.", reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
     else:
-        await update.message.reply_text("Пожалуйста, выбери один из предложенных вариантов.")
-        return CHOOSE_SECTION
+        await update.message.reply_text("Пожалуйста, выбери вариант с кнопки.")
+        return MENU
 
-# Монтажные работы
 async def get_cameras(update, context):
     context.user_data['cameras'] = int(update.message.text)
     await update.message.reply_text("Сколько метров кабеля?")
@@ -51,23 +46,18 @@ async def get_gofra(update, context):
 async def get_kanal(update, context):
     context.user_data['kanal'] = int(update.message.text)
     reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text(
-        "Нужна установка и настройка видеорегистратора?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
+    await update.message.reply_text("Нужна установка видеорегистратора?", reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True))
     return DVR
 
 async def get_dvr(update, context):
     context.user_data['dvr'] = update.message.text.lower() == "да"
     reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text(
-        "Нужна настройка роутера?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
+    await update.message.reply_text("Нужна настройка роутера?", reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True))
     return ROUTER
 
 async def get_router(update, context):
     context.user_data['router'] = update.message.text.lower() == "да"
+
     c = context.user_data
     total = (
         c['cameras'] * 1800 +
@@ -77,7 +67,7 @@ async def get_router(update, context):
         (2500 if c['dvr'] else 0) +
         (1000 if c['router'] else 0)
     )
-    reply_keyboard = [["Начать заново"]]
+
     await update.message.reply_text(
         f"""Расчёт:
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
@@ -87,68 +77,30 @@ async def get_router(update, context):
 Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
 
-ИТОГО: {total}₽
-Нажмите /start или кнопку ниже, чтобы начать заново.""",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+ИТОГО: {total}₽""",
+        reply_markup=ReplyKeyboardMarkup([["Начать заново"]], resize_keyboard=True)
     )
-    return ConversationHandler.END
-
-# Комплект
-async def get_kit_cameras(update, context):
-    context.user_data['kit_cameras'] = int(update.message.text)
-    reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text("Нужен видеорегистратор?", reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
-    return KIT_DVR
-
-async def get_kit_dvr(update, context):
-    context.user_data['kit_dvr'] = update.message.text.lower() == "да"
-    reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text("Нужен жёсткий диск?", reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
-    return KIT_HDD
-
-async def get_kit_hdd(update, context):
-    context.user_data['kit_hdd'] = update.message.text.lower() == "да"
-    c = context.user_data
-    total = (
-        c['kit_cameras'] * 2500 +
-        (5000 if c['kit_dvr'] else 0) +
-        (4000 if c['kit_hdd'] else 0)
-    )
-    reply_keyboard = [["Начать заново"]]
-    await update.message.reply_text(
-        f"""Комплект:
-Камеры: {c['kit_cameras']} × 2500 = {c['kit_cameras'] * 2500}₽
-Видеорегистратор: {'5000₽' if c['kit_dvr'] else 'не требуется'}
-Жёсткий диск: {'4000₽' if c['kit_hdd'] else 'не требуется'}
-
-ИТОГО: {total}₽
-Нажмите /start или кнопку ниже, чтобы начать заново.""",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return ConversationHandler.END
+    return MENU
 
 async def cancel(update, context):
-    await update.message.reply_text("Операция отменена.")
+    await update.message.reply_text("Операция отменена.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 app = Application.builder().token(TOKEN).build()
 
-conv = ConversationHandler(
+conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
-        CHOOSE_SECTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_section)],
-        MONTAJ_CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cameras)],
+        MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu)],
+        CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cameras)],
         CABLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cable)],
         GOFRA: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gofra)],
         KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
         DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
         ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
-        KIT_CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kit_cameras)],
-        KIT_DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kit_dvr)],
-        KIT_HDD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kit_hdd)],
     },
-    fallbacks=[CommandHandler("cancel", cancel)]
+    fallbacks=[CommandHandler("cancel", cancel)],
 )
 
-app.add_handler(conv)
+app.add_handler(conv_handler)
 app.run_polling()

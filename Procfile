@@ -1,1 +1,1 @@
-web: python montaj-bot.py
+web: python montaj_bot.py

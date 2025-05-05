@@ -138,4 +138,4 @@ conv = ConversationHandler(
 application.add_handler(conv)
 
 if __name__ == '__main__':
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)

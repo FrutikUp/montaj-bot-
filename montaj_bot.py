@@ -1,15 +1,19 @@
+import logging
+import os
+import asyncio
 from telegram import Bot, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
+
 # Токен от BotFather
 TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
 
 # Этапы разговора
 (CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(8)
 
-# Создание бота и приложения для работы с ним
+# Создание приложения для работы с ботом
 application = Application.builder().token(TOKEN).build()
 
-# Создание хэндлеров и логики
+# Хэндлеры для логики работы бота
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
     await update.message.reply_text(
@@ -27,7 +31,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Выберите комплект: Камеры, кабель, видеорегистратор и т. д.")
         return KIT_CAMERAS
 
-# Для Монтажных работ
+# Логика для Монтажных работ
 async def get_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         context.user_data['cameras'] = int(update.message.text)
@@ -109,7 +113,6 @@ async def get_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return MENU  # Переход в меню
 
 async def kit_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Логика для сбора комплекта
     await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
     return KIT_CAMERAS
 
@@ -133,22 +136,19 @@ conv = ConversationHandler(
     fallbacks=[CommandHandler("cancel", cancel)]
 )
 
+# Добавляем хэндлер
 application.add_handler(conv)
 
-import os
-import asyncio
-
-PORT = int(os.environ.get("PORT", 8443))
-
+# Функция для запуска бота
 async def main():
-    application.add_handler(conv)
+    # Запуск вебхука
     await application.run_webhook(
         listen="0.0.0.0",
-        port=PORT,
-        webhook_url="https://montaj-bot.onrender.com/webhook",
+        port=int(os.environ.get("PORT", 8443)),
+        url_path="/webhook",
+        webhook_url="https://montaj-bot.onrender.com/webhook"
     )
 
 if __name__ == '__main__':
-    import logging
     logging.basicConfig(level=logging.INFO)
     asyncio.run(main())

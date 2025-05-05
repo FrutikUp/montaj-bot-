@@ -1,14 +1,10 @@
-
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-import os
-TOKEN = os.getenv("TOKEN")
-
-(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER) = range(6)
+(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, RESTART) = range(7)
 
 async def start(update, context):
-    await update.message.reply_text("Сколько камер нужно установить?")
+    await update.message.reply_text("Сколько камер нужно установить?", reply_markup=ReplyKeyboardRemove())
     return CAMERAS
 
 async def get_cameras(update, context):
@@ -46,6 +42,7 @@ async def get_dvr(update, context):
 
 async def get_router(update, context):
     context.user_data['router'] = update.message.text.lower() == "да"
+
     c = context.user_data
     total = (
         c['cameras'] * 1800 +
@@ -56,8 +53,7 @@ async def get_router(update, context):
         (1000 if c['router'] else 0)
     )
 
-    await update.message.reply_text(
-        f"""Расчёт:
+    reply_text = f"""Расчёт:
 Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
 Кабеля: {c['cable']} м × 50 = {c['cable'] * 50}₽
 Гофры: {c['gofra']} м × 80 = {c['gofra'] * 80}₽
@@ -66,14 +62,27 @@ async def get_router(update, context):
 Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
 
 ИТОГО: {total}₽"""
+
+    reply_keyboard = [["Начать заново", "Выход"]]
+    await update.message.reply_text(reply_text)
+    await update.message.reply_text(
+        "Что хотите сделать дальше?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
-    return ConversationHandler.END
+    return RESTART
+
+async def restart_or_exit(update, context):
+    if update.message.text == "Начать заново":
+        return await start(update, context)
+    else:
+        await update.message.reply_text("Спасибо! Если нужно будет снова — напишите /start.", reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
 
 async def cancel(update, context):
-    await update.message.reply_text("Операция отменена.")
+    await update.message.reply_text("Операция отменена.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-app = Application.builder().token(TOKEN).build()
+app = Application.builder().token("ТВОЙ_ТОКЕН").build()
 
 conv = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
@@ -84,6 +93,7 @@ conv = ConversationHandler(
         KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
         DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
         ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
+        RESTART: [MessageHandler(filters.TEXT & ~filters.COMMAND, restart_or_exit)],
     },
     fallbacks=[CommandHandler("cancel", cancel)]
 )

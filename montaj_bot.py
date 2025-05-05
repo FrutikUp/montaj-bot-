@@ -1,4 +1,4 @@
-from telegram import Bot, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Bot, ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 
 # Токен от BotFather

@@ -90,6 +90,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"ИТОГО оборудование: {cam_total + sd_total + cable_total}₽\n\n"
                 f"**Монтажные работы:**\n"
                 f"Установка камер: {count} × {INSTALL_PTZ}₽ = {count * INSTALL_PTZ}₽\n"
+                f"Прокладка кабеля: {cable} × {INSTALL_CABLE}₽ = {cable * INSTALL_CABLE}₽\n"
                 f"Пусконаладочные: {STARTUP_PTZ}₽\n"
                 f"ИТОГО монтаж: {install_total}₽\n\n"
                 f"**ИТОГО ОБЩЕЕ: {grand_total}₽**"

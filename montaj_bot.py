@@ -7,15 +7,23 @@ PRICES = {
     "ahd_inside": 1500,
     "ahd_outside": 1700,
     "cable_m": 50,
-    "recorder": 5000,
-    "hdd": 4000,
-    "poe_switch": 3000,
-    "power_supply": 500,
+    "cable_gofra": 80,
+    "cable_kanal": 50,
+    "recorder_4ch": 2500,
+    "recorder_8ch": 3500,
+    "recorder_16ch": 4500,
+    "recorder_32ch": 5500,
+    "recorder_64ch": 6500,
+    "router": 1000,
+    "hdd_1tb": 4500,
+    "hdd_2tb": 6000,
+    "hdd_4tb": 9000,
+    "hdd_6tb": 12000,
 }
 
 CAMERA_PRICES = {
-    "ip": {"2mp": 3200, "4mp": 3700, "5mp": 4000},
-    "ahd": {"2mp": 2500, "4mp": 3000, "5mp": 3300},
+    "ip": {"2mp": 3000, "4mp": 4200, "5mp": 5500},
+    "ahd": {"2mp": 2500, "4mp": 3400, "5mp": 4800},
 }
 
 user_state = {}
@@ -68,37 +76,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_state[user_id]["resolution"] = query.data.replace("res_", "")
             await query.edit_message_text("Сколько камер планируется установить?")
 
-    elif query.data in ["poe", "psu"]:
+    elif query.data.startswith("recorder"):
         if user_id in user_state:
-            state = user_state[user_id]
-            state["power"] = query.data
+            user_state[user_id]["recorder"] = query.data
+            await query.edit_message_text("Сколько метров кабеля необходимо?")
 
-            is_ip = state["eq_type"] == "eq_ip"
-            resolution = state["resolution"]
-            cam_count = state["camera_count"]
-            cable_m = state["cable_meters"]
-
-            cam_price = CAMERA_PRICES["ip" if is_ip else "ahd"][resolution]
-            cameras_total = cam_count * cam_price
-            cable_total = cable_m * PRICES["cable_m"]
-            recorder = PRICES["recorder"]
-            hdd = PRICES["hdd"]
-            power = PRICES["poe_switch"] if state["power"] == "poe" else PRICES["power_supply"]
-            power_total = power if state["power"] == "poe" else power * cam_count
-
-            total = cameras_total + cable_total + recorder + hdd + power_total
-
-            msg = (
-                f"Система: {'IP' if is_ip else 'AHD'}\n"
-                f"Камеры ({cam_count} шт, {resolution}): {cameras_total}₽\n"
-                f"Кабель ({cable_m} м): {cable_total}₽\n"
-                f"Регистратор: {recorder}₽\n"
-                f"HDD: {hdd}₽\n"
-                f"{'PoE-коммутатор' if state['power'] == 'poe' else 'Блоки питания'}: {power_total}₽\n"
-                f"Итого: {total}₽"
-            )
-            await query.edit_message_text(msg)
-            user_state.pop(user_id)
+    elif query.data in ["hdd_1tb", "hdd_2tb", "hdd_4tb", "hdd_6tb"]:
+        if user_id in user_state:
+            user_state[user_id]["hdd"] = query.data
+            await query.edit_message_text("Сколько метров кабеля нужно проложить?")
 
 # Сообщения (ввод количества)
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -120,15 +106,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif "resolution" in state and "eq_type" in state and "camera_count" not in state:
             state["camera_count"] = count
-            await update.message.reply_text("Сколько метров кабеля понадобится (примерно)?")
+            await update.message.reply_text("Сколько метров кабеля потребуется?")
 
         elif "camera_count" in state and "cable_meters" not in state:
             state["cable_meters"] = count
+            await update.message.reply_text("Сколько метров гофры потребуется?")
+
+        elif "cable_meters" in state and "gofra_meters" not in state:
+            state["gofra_meters"] = count
+            await update.message.reply_text("Сколько метров кабель-канала потребуется?")
+
+        elif "gofra_meters" in state and "kanal_meters" not in state:
+            state["kanal_meters"] = count
             keyboard = [
-                [InlineKeyboardButton("PoE-коммутатор", callback_data="poe")],
-                [InlineKeyboardButton("Блоки питания", callback_data="psu")],
+                [InlineKeyboardButton("HDD 1TB", callback_data="hdd_1tb")],
+                [InlineKeyboardButton("HDD 2TB", callback_data="hdd_2tb")],
+                [InlineKeyboardButton("HDD 4TB", callback_data="hdd_4tb")],
+                [InlineKeyboardButton("HDD 6TB", callback_data="hdd_6tb")],
             ]
-            await update.message.reply_text("Выберите тип питания:", reply_markup=InlineKeyboardMarkup(keyboard))
+            await update.message.reply_text("Выберите объём HDD:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+        elif "kanal_meters" in state and "hdd" not in state:
+            await update.message.reply_text("Выберите объём HDD для системы.")
 
     except ValueError:
         await update.message.reply_text("Введите число.")

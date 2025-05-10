@@ -1,137 +1,145 @@
-from telegram import Bot, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# Токен от BotFather
-TOKEN = '8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE'
+PRICES = {
+    "ip_inside": 1600,
+    "ip_outside": 1800,
+    "ahd_inside": 1500,
+    "ahd_outside": 1700,
+    "cable_m": 50,
+    "recorder": 5000,
+    "hdd": 4000,
+    "poe_switch": 3000,
+    "power_supply": 500,
+}
 
-# Этапы разговора
-(CAMERAS, CABLE, GOFRA, KABELKANAL, DVR, ROUTER, MENU, KIT_CAMERAS) = range(8)
+CAMERA_PRICES = {
+    "ip": {"2mp": 3200, "4mp": 3700, "5mp": 4000},
+    "ahd": {"2mp": 2500, "4mp": 3000, "5mp": 3300},
+}
 
-# Создание бота и приложения для работы с ним
-bot = Bot(token=TOKEN)
-application = Application.builder().token(TOKEN).build()
+user_state = {}
 
-# Создание хэндлеров и логики
-async def start(update, context):
-    reply_keyboard = [['Монтажные работы', 'Собрать комплект']]
-    await update.message.reply_text(
-        "Привет! Чем могу помочь?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return MENU
+# Старт
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("Монтажные работы", callback_data='montage')],
+        [InlineKeyboardButton("Собрать комплект оборудования", callback_data='equipment')],
+    ]
+    await update.message.reply_text("Выберите раздел:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def menu(update, context):
-    text = update.message.text
-    if text == "Монтажные работы":
-        await update.message.reply_text("Сколько камер нужно установить?")
-        return CAMERAS
-    elif text == "Собрать комплект":
-        await update.message.reply_text("Выберите комплект: Камеры, кабель, видеорегистратор и т. д.")
-        return KIT_CAMERAS
+# Кнопки
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
 
-# Для Монтажных работ
-async def get_cameras(update, context):
+    if query.data == "montage":
+        keyboard = [
+            [InlineKeyboardButton("IP внутренняя", callback_data='ip_inside')],
+            [InlineKeyboardButton("IP наружная", callback_data='ip_outside')],
+            [InlineKeyboardButton("AHD внутренняя", callback_data='ahd_inside')],
+            [InlineKeyboardButton("AHD наружная", callback_data='ahd_outside')],
+        ]
+        await query.edit_message_text("Выберите тип установки:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    elif query.data in PRICES:
+        user_state[user_id] = {"type": query.data}
+        await query.edit_message_text("Сколько единиц нужно установить?")
+
+    elif query.data == "equipment":
+        keyboard = [
+            [InlineKeyboardButton("IP-система", callback_data='eq_ip')],
+            [InlineKeyboardButton("AHD-система", callback_data='eq_ahd')],
+        ]
+        await query.edit_message_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    elif query.data in ["eq_ip", "eq_ahd"]:
+        user_state[user_id] = {"eq_type": query.data}
+        keyboard = [
+            [InlineKeyboardButton("2 Мп", callback_data="res_2mp")],
+            [InlineKeyboardButton("4 Мп", callback_data="res_4mp")],
+            [InlineKeyboardButton("5 Мп", callback_data="res_5mp")],
+        ]
+        await query.edit_message_text("Выберите разрешение камер:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    elif query.data.startswith("res_"):
+        if user_id in user_state:
+            user_state[user_id]["resolution"] = query.data.replace("res_", "")
+            await query.edit_message_text("Сколько камер планируется установить?")
+
+    elif query.data in ["poe", "psu"]:
+        if user_id in user_state:
+            state = user_state[user_id]
+            state["power"] = query.data
+
+            is_ip = state["eq_type"] == "eq_ip"
+            resolution = state["resolution"]
+            cam_count = state["camera_count"]
+            cable_m = state["cable_meters"]
+
+            cam_price = CAMERA_PRICES["ip" if is_ip else "ahd"][resolution]
+            cameras_total = cam_count * cam_price
+            cable_total = cable_m * PRICES["cable_m"]
+            recorder = PRICES["recorder"]
+            hdd = PRICES["hdd"]
+            power = PRICES["poe_switch"] if state["power"] == "poe" else PRICES["power_supply"]
+            power_total = power if state["power"] == "poe" else power * cam_count
+
+            total = cameras_total + cable_total + recorder + hdd + power_total
+
+            msg = (
+                f"Система: {'IP' if is_ip else 'AHD'}\n"
+                f"Камеры ({cam_count} шт, {resolution}): {cameras_total}₽\n"
+                f"Кабель ({cable_m} м): {cable_total}₽\n"
+                f"Регистратор: {recorder}₽\n"
+                f"HDD: {hdd}₽\n"
+                f"{'PoE-коммутатор' if state['power'] == 'poe' else 'Блоки питания'}: {power_total}₽\n"
+                f"Итого: {total}₽"
+            )
+            await query.edit_message_text(msg)
+            user_state.pop(user_id)
+
+# Сообщения (ввод количества)
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    state = user_state.get(user_id)
+
+    if not state:
+        await update.message.reply_text("Начните с команды /start.")
+        return
+
     try:
-        context.user_data['cameras'] = int(update.message.text)
-        await update.message.reply_text("Сколько метров кабеля?")
-        return CABLE
+        count = int(update.message.text)
+
+        if "type" in state:
+            price = PRICES[state["type"]]
+            total = price * count
+            await update.message.reply_text(f"Стоимость: {count} × {price}₽ = {total}₽")
+            user_state.pop(user_id)
+
+        elif "resolution" in state and "eq_type" in state and "camera_count" not in state:
+            state["camera_count"] = count
+            await update.message.reply_text("Сколько метров кабеля понадобится (примерно)?")
+
+        elif "camera_count" in state and "cable_meters" not in state:
+            state["cable_meters"] = count
+            keyboard = [
+                [InlineKeyboardButton("PoE-коммутатор", callback_data="poe")],
+                [InlineKeyboardButton("Блоки питания", callback_data="psu")],
+            ]
+            await update.message.reply_text("Выберите тип питания:", reply_markup=InlineKeyboardMarkup(keyboard))
+
     except ValueError:
-        await update.message.reply_text("Пожалуйста, введите число.")
-        return CAMERAS
+        await update.message.reply_text("Введите число.")
 
-async def get_cable(update, context):
-    try:
-        context.user_data['cable'] = int(update.message.text)
-        await update.message.reply_text("Сколько метров кабеля в гофре?")
-        return GOFRA
-    except ValueError:
-        await update.message.reply_text("Пожалуйста, введите число.")
-        return CABLE
+# Запуск
+def main():
+    app = Application.builder().token("8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE").build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling()
 
-async def get_gofra(update, context):
-    try:
-        context.user_data['gofra'] = int(update.message.text)
-        await update.message.reply_text("Сколько метров кабель-канала?")
-        return KABELKANAL
-    except ValueError:
-        await update.message.reply_text("Пожалуйста, введите число.")
-        return GOFRA
-
-async def get_kanal(update, context):
-    try:
-        context.user_data['kanal'] = int(update.message.text)
-        reply_keyboard = [["Да", "Нет"]]
-        await update.message.reply_text(
-            "Нужна установка и настройка видеорегистратора?",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-        )
-        return DVR
-    except ValueError:
-        await update.message.reply_text("Пожалуйста, введите число.")
-        return KABELKANAL
-
-async def get_dvr(update, context):
-    context.user_data['dvr'] = update.message.text.lower() == "да"
-    reply_keyboard = [["Да", "Нет"]]
-    await update.message.reply_text(
-        "Нужна настройка роутера?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    )
-    return ROUTER
-
-async def get_router(update, context):
-    context.user_data['router'] = update.message.text.lower() == "да"
-
-    # Расчёт
-    c = context.user_data
-    total = (
-        c['cameras'] * 1800 +
-        c['cable'] * 50 +
-        c['gofra'] * 80 +
-        c['kanal'] * 50 +
-        (2500 if c['dvr'] else 0) +
-        (1000 if c['router'] else 0)
-    )
-
-    await update.message.reply_text(
-        f"""Расчёт:
-Камер: {c['cameras']} × 1800 = {c['cameras'] * 1800}₽
-Кабеля: {c['cable']} м × 50 = {c['cable'] * 50}₽
-Гофры: {c['gofra']} м × 80 = {c['gofra'] * 80}₽
-Кабель-канала: {c['kanal']} м × 50 = {c['kanal'] * 50}₽
-Видеорегистратор: {'2500₽' if c['dvr'] else 'не требуется'}
-Настройка роутера: {'1000₽' if c['router'] else 'не требуется'}
-
-ИТОГО: {total}₽"""
-    )
-    return ConversationHandler.END
-
-async def kit_cameras(update, context):
-    # Логика для сбора комплекта (к примеру, если бот должен собрать определенные товары)
-    await update.message.reply_text("Вы выбрали собирать комплект камер. Какие именно камеры хотите? Пример: '4 камеры', '6 камер' и т.д.")
-    return KIT_CAMERAS
-
-async def cancel(update, context):
-    await update.message.reply_text("Операция отменена.")
-    return ConversationHandler.END
-
-# Создание хэндлеров
-conv = ConversationHandler(
-    entry_points=[CommandHandler("start", start)],
-    states={
-        MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu)],
-        CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cameras)],
-        CABLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_cable)],
-        GOFRA: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gofra)],
-        KABELKANAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_kanal)],
-        DVR: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dvr)],
-        ROUTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_router)],
-        KIT_CAMERAS: [MessageHandler(filters.TEXT & ~filters.COMMAND, kit_cameras)],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)]
-)
-
-application.add_handler(conv)
-
-if __name__ == '__main__':
-    application.run_polling()
+if __name__ == "__main__":
+    main()

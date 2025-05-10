@@ -15,7 +15,7 @@ STARTUP_WORK = 2000
 INSTALL_CABLE = 50
 INSTALL_SWITCH = 1000
 
-# PTZ-константы
+# PTZ
 PTZ_PRICE = 6000
 SD_PRICES = {"64gb": 800, "128gb": 1200, "256gb": 2000}
 INSTALL_PTZ = 2000
@@ -25,23 +25,20 @@ CABLE_PTZ = 65
 user_state = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton("Продолжить", callback_data="continue")]]
-    await update.message.reply_text("Добро пожаловать в калькулятор монтажных работ!", reply_markup=InlineKeyboardMarkup(keyboard))
+    keyboard = [
+        [InlineKeyboardButton("IP-камеры", callback_data="ip")],
+        [InlineKeyboardButton("PTZ-камеры", callback_data="ptz")]
+    ]
+    user_state[update.effective_user.id] = {}
+    await update.message.reply_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
 
-    if query.data == "continue":
-        keyboard = [
-            [InlineKeyboardButton("IP-камеры", callback_data="ip")],
-            [InlineKeyboardButton("PTZ-камеры", callback_data="ptz")]
-        ]
-        user_state[user_id] = {}
-        await query.edit_message_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif query.data == "ip":
+    if query.data == "ip":
+        user_state[user_id] = {"type": "ip"}
         keyboard = [
             [InlineKeyboardButton("2 Мп", callback_data="2mp")],
             [InlineKeyboardButton("4 Мп", callback_data="4mp")],
@@ -49,13 +46,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await query.edit_message_text("Выберите разрешение камер:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-    elif query.data == "ptz":
-        user_state[user_id]["type"] = "ptz"
-        await query.edit_message_text("Сколько PTZ-камер планируется установить?")
-
     elif query.data in CAMERA_PRICES:
-        user_state[user_id]["type"] = "ip"
-        user_state[user_id]["resolution"] = query.data
+        state = user_state.get(user_id, {})
+        state["resolution"] = query.data
         await query.edit_message_text("Сколько камер планируется установить?")
 
     elif query.data in HDD_PRICES:
@@ -66,11 +59,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_state[user_id]["sdcard"] = query.data
         await query.edit_message_text("Примерное количество метров кабеля?")
 
+    elif query.data == "ptz":
+        user_state[user_id] = {"type": "ptz"}
+        await query.edit_message_text("Сколько PTZ-камер планируется установить?")
+
     elif query.data == "final":
         state = user_state.get(user_id, {})
-        if not state:
-            return
-
         if state.get("type") == "ptz":
             count = state["camera_count"]
             sd = state["sdcard"]
@@ -79,8 +73,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cam_total = count * PTZ_PRICE
             sd_total = count * SD_PRICES[sd]
             cable_total = cable * CABLE_PTZ
-            install_total = count * INSTALL_PTZ + cable_total + STARTUP_PTZ
-            grand_total = cam_total + sd_total + install_total
+            install_total = count * INSTALL_PTZ + cable * INSTALL_CABLE + STARTUP_PTZ
+            grand_total = cam_total + sd_total + cable_total + install_total
 
             msg = (
                 f"**Смета оборудования (PTZ):**\n"
@@ -119,7 +113,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             install_total = (
                 cam_count * INSTALL_CAMERA +
                 INSTALL_SWITCH * switches +
-                INSTALL_CABLE * cable +
+                cable * INSTALL_CABLE +
                 CONFIG_DVR +
                 STARTUP_WORK
             )
@@ -145,17 +139,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"**ИТОГО ОБЩЕЕ: {grand_total}₽**"
             )
 
-        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="continue")]]
+        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="ip")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
-        user_state.pop(user_id)
+        user_state.pop(user_id, None)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     state = user_state.get(user_id, {})
 
-    if state.get("type") == "ptz":
-        try:
-            value = int(update.message.text)
+    try:
+        value = int(update.message.text)
+
+        if state.get("type") == "ptz":
             if "camera_count" not in state:
                 state["camera_count"] = value
                 keyboard = [[InlineKeyboardButton(k.upper(), callback_data=k)] for k in SD_PRICES]
@@ -164,23 +159,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 state["cable"] = value
                 keyboard = [[InlineKeyboardButton("Показать расчёт", callback_data="final")]]
                 await update.message.reply_text("Нажмите, чтобы увидеть расчёт:", reply_markup=InlineKeyboardMarkup(keyboard))
-        except ValueError:
-            await update.message.reply_text("Введите число.")
-        return
 
-    try:
-        value = int(update.message.text)
-        if "resolution" in state and "camera_count" not in state:
-            state["camera_count"] = value
-            keyboard = [[InlineKeyboardButton(txt.upper(), callback_data=txt)] for txt in HDD_PRICES]
-            await update.message.reply_text("Выберите HDD:", reply_markup=InlineKeyboardMarkup(keyboard))
-        elif "hdd" in state and "switches" not in state:
-            state["switches"] = value
-            await update.message.reply_text("Примерное количество метров кабеля?")
-        elif "switches" in state and "cable" not in state:
-            state["cable"] = value
-            keyboard = [[InlineKeyboardButton("Показать расчёт", callback_data="final")]]
-            await update.message.reply_text("Нажмите, чтобы увидеть расчёт:", reply_markup=InlineKeyboardMarkup(keyboard))
+        elif state.get("type") == "ip":
+            if "resolution" in state and "camera_count" not in state:
+                state["camera_count"] = value
+                keyboard = [[InlineKeyboardButton(txt.upper(), callback_data=txt)] for txt in HDD_PRICES]
+                await update.message.reply_text("Выберите HDD:", reply_markup=InlineKeyboardMarkup(keyboard))
+            elif "hdd" in state and "switches" not in state:
+                state["switches"] = value
+                await update.message.reply_text("Примерное количество метров кабеля?")
+            elif "switches" in state and "cable" not in state:
+                state["cable"] = value
+                keyboard = [[InlineKeyboardButton("Показать расчёт", callback_data="final")]]
+                await update.message.reply_text("Нажмите, чтобы увидеть расчёт:", reply_markup=InlineKeyboardMarkup(keyboard))
     except ValueError:
         await update.message.reply_text("Введите число.")
 

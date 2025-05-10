@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = "8157090611:AAF-tltFHeHE9r9LuCBMXS4UqsIt09SO7VE"
+BOT_TOKEN = "8157090611:AAHZJFGRmsrD6csJaGJ9rgSLFUHXwmMx-SM"
 
 CAMERA_PRICES = {"2mp": 2800, "4mp": 4100, "5mp": 6000}
 REGISTRATOR_PRICES = {4: 5000, 8: 8000, 16: 12000, 32: 20000}

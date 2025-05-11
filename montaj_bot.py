@@ -30,12 +30,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("PTZ-камеры", callback_data="ptz")]
     ]
     user_state[update.effective_user.id] = {}
-    await update.message.reply_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
+    if update.message:
+        await update.message.reply_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.callback_query.edit_message_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+
+    if query.data == "restart":
+        await start(update, context)
+        return
 
     if query.data == "ip":
         user_state[user_id] = {"type": "ip"}
@@ -139,7 +146,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"**ИТОГО ОБЩЕЕ: {grand_total}₽**"
             )
 
-        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="ip")]]
+        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="restart")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
         user_state.pop(user_id, None)
 

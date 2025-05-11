@@ -1,10 +1,12 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
-from io import BytesIO
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
-BOT_TOKEN = "8157090611:AAEuOkwPlpKnhnMyAjywGpQpWE3bKCLWuBY"
+import os
+
+BOT_TOKEN = "YOUR_BOT_TOKEN"
 
 CAMERA_PRICES = {"2mp": 2800, "4mp": 4100, "5mp": 6000}
 REGISTRATOR_PRICES = {4: 5000, 8: 8000, 16: 12000, 32: 20000}
@@ -24,20 +26,33 @@ INSTALL_PTZ = 2000
 STARTUP_PTZ = 2500
 CABLE_PTZ = 65
 
+pdfmetrics.registerFont(TTFont("DejaVu", "DejaVuSans.ttf"))
+
 user_state = {}
 
-def generate_pdf(text: str) -> BytesIO:
-    buffer = BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    y = height - 40
-    for line in text.split("\n"):
-        p.drawString(40, y, line)
-        y -= 15
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    return buffer
+def generate_pdf(user_id: int, content: str) -> str:
+    filename = f"kom_predlozhenie_{user_id}.pdf"
+    c = canvas.Canvas(filename)
+    c.setFont("DejaVu", 12)
+    y = 800
+    for line in content.split('\n'):
+        c.drawString(50, y, line)
+        y -= 20
+    c.save()
+    return filename
+
+async def send_estimate(update: Update, context: ContextTypes.DEFAULT_TYPE, msg: str):
+    user_id = update.callback_query.from_user.id
+    await update.callback_query.message.reply_text(msg)
+
+    pdf_path = generate_pdf(user_id, msg)
+    with open(pdf_path, "rb") as pdf_file:
+        await context.bot.send_document(chat_id=user_id, document=InputFile(pdf_file), filename="Коммерческое_предложение.pdf")
+
+    keyboard = [
+        [InlineKeyboardButton("Начать сначала", callback_data="restart")]
+    ]
+    await update.callback_query.message.reply_text("Хотите начать заново?", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -161,16 +176,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"ИТОГО ОБЩЕЕ: {grand_total}₽"
             )
 
-        pdf = generate_pdf(msg)
-        await context.bot.send_document(
-            chat_id=query.message.chat.id,
-            document=pdf,
-            filename="commercial_offer.pdf",
-            caption="Коммерческое предложение"
-        )
-
-        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="restart")]]
-        await query.edit_message_text("Вы можете начать сначала:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await send_estimate(update, context, msg)
         user_state.pop(user_id, None)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):

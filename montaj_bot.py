@@ -183,7 +183,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Введите число.")
 
 async def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(8157090611:AAGa7HdYHQxBC_YgUP2O-p_vVMDxrt1LL8Q).build()
     await app.bot.delete_webhook(drop_pending_updates=True)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))

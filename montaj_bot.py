@@ -1,5 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
 
 BOT_TOKEN = "8157090611:AAEuOkwPlpKnhnMyAjywGpQpWE3bKCLWuBY"
 
@@ -15,7 +18,6 @@ STARTUP_WORK = 2000
 INSTALL_CABLE = 50
 INSTALL_SWITCH = 1000
 
-# PTZ
 PTZ_PRICE = 6000
 SD_PRICES = {"64gb": 800, "128gb": 1200, "256gb": 2000}
 INSTALL_PTZ = 2000
@@ -23,6 +25,19 @@ STARTUP_PTZ = 2500
 CABLE_PTZ = 65
 
 user_state = {}
+
+def generate_pdf(text: str) -> BytesIO:
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 40
+    for line in text.split("\n"):
+        p.drawString(40, y, line)
+        y -= 15
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -84,17 +99,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             grand_total = cam_total + sd_total + cable_total + install_total
 
             msg = (
-                f"**Смета оборудования (PTZ):**\n"
+                f"Смета оборудования (PTZ):\n"
                 f"Камеры {count} × {PTZ_PRICE}₽ = {cam_total}₽\n"
                 f"SD-карта {sd} × {count} = {sd_total}₽\n"
                 f"Кабель {cable} м × {CABLE_PTZ}₽ = {cable_total}₽\n"
                 f"ИТОГО оборудование: {cam_total + sd_total + cable_total}₽\n\n"
-                f"**Монтажные работы:**\n"
+                f"Монтажные работы:\n"
                 f"Установка камер: {count} × {INSTALL_PTZ}₽ = {count * INSTALL_PTZ}₽\n"
                 f"Прокладка кабеля: {cable} × {INSTALL_CABLE}₽ = {cable * INSTALL_CABLE}₽\n"
                 f"Пусконаладочные: {STARTUP_PTZ}₽\n"
                 f"ИТОГО монтаж: {install_total}₽\n\n"
-                f"**ИТОГО ОБЩЕЕ: {grand_total}₽**"
+                f"ИТОГО ОБЩЕЕ: {grand_total}₽"
             )
         else:
             resolution = state["resolution"]
@@ -129,25 +144,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             grand_total = equipment_total + install_total
 
             msg = (
-                f"**Смета оборудования:**\n"
+                f"Смета оборудования:\n"
                 f"Камеры {cam_count} × {cam_price}₽ = {cameras_total}₽\n"
                 f"Видеорегистратор = {reg_price}₽\n"
                 f"HDD {hdd} = {hdd_price}₽\n"
                 f"PoE-коммутаторы {switches} × {POE_PRICE}₽ = {switches_total}₽\n"
                 f"Кабель {cable} м × {CABLE_PRICE}₽ = {cable_total}₽\n"
                 f"ИТОГО оборудование: {equipment_total}₽\n\n"
-                f"**Монтажные работы:**\n"
+                f"Монтажные работы:\n"
                 f"Установка камер: {cam_count} × {INSTALL_CAMERA}₽ = {cam_count * INSTALL_CAMERA}₽\n"
                 f"Настройка регистратора: {CONFIG_DVR}₽\n"
                 f"Пусконаладочные: {STARTUP_WORK}₽\n"
                 f"Прокладка кабеля: {cable} × {INSTALL_CABLE}₽ = {cable * INSTALL_CABLE}₽\n"
                 f"Установка коммутаторов: {switches} × {INSTALL_SWITCH}₽ = {switches * INSTALL_SWITCH}₽\n"
                 f"ИТОГО монтаж: {install_total}₽\n\n"
-                f"**ИТОГО ОБЩЕЕ: {grand_total}₽**"
+                f"ИТОГО ОБЩЕЕ: {grand_total}₽"
             )
 
+        pdf = generate_pdf(msg)
+        await context.bot.send_document(
+            chat_id=query.message.chat.id,
+            document=pdf,
+            filename="commercial_offer.pdf",
+            caption="Коммерческое предложение"
+        )
+
         keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="restart")]]
-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text("Вы можете начать сначала:", reply_markup=InlineKeyboardMarkup(keyboard))
         user_state.pop(user_id, None)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):

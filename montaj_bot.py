@@ -30,19 +30,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("PTZ-камеры", callback_data="ptz")]
     ]
     user_state[update.effective_user.id] = {}
-    if update.message:
-        await update.message.reply_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
-    else:
-        await update.callback_query.edit_message_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("Выберите тип системы:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-
-    if query.data == "restart":
-        await start(update, context)
-        return
 
     if query.data == "ip":
         user_state[user_id] = {"type": "ip"}
@@ -146,7 +139,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"**ИТОГО ОБЩЕЕ: {grand_total}₽**"
             )
 
-        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="restart")]]
+        keyboard = [[InlineKeyboardButton("Начать сначала", callback_data="ip")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
         user_state.pop(user_id, None)
 
@@ -182,13 +175,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await update.message.reply_text("Введите число.")
 
-async def main():
-    app = Application.builder().token("8157090611:AAGa7HdYHQxBC_YgUP2O-p_vVMDxrt1LL8Q").build()
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    await app.run_polling()
+    app.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
